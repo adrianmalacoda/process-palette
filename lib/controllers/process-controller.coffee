@@ -362,6 +362,8 @@ class ProcessController
       return value.split('/').join('\\');
     else if filter == 'trim'
       return value.trim();
+    else if filter.substring(0, 3) == 'or '
+      return value || @pipeField(filter.substring(3))
 
     return value;
 
