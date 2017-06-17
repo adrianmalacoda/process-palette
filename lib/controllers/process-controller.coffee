@@ -129,7 +129,6 @@ class ProcessController
       @fields.filePath = "";
       @fields.fileDirPath = "";
       @fields.fileProjectPath = "";
-      @fields.selection = "";
 
     if !@saveDirtyFiles()
       return false;
