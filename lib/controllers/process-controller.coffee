@@ -9,6 +9,7 @@ InputDialogView = require '../views/input-dialog-view'
 ProjectsView = require '../views/projects-view'
 Buffer = require './buffer'
 cp = require('child_process')
+{allowUnsafeNewFunction} = require 'loophole'
 
 # Fields :
 # stdout : Standard output.
@@ -52,6 +53,7 @@ class ProcessController
     @stderrBuffer = new Buffer(@config.outputBufferSize);
     @killed = false;
     @exitStatus = null;
+    @autoDiscard = false;
 
     if (@config.outputTarget == "panel")
       @outputView = new ProcessOutputView(@configController.getMain(), @);
@@ -135,7 +137,7 @@ class ProcessController
 
     @takeUserInput(@config.inputDialogs);
 
-# Return true if the execution should continue. false if the user canceled.
+  # Return true if the execution should continue. false if the user canceled.
   saveDirtyFiles: ->
     if @config.saveOption == 'none'
       return true;
@@ -190,6 +192,8 @@ class ProcessController
 
     return null;
 
+  # return true if the editors were saved and the process can be executed.
+  # false if the user canceled saving and the process shouldn't execute.
   saveEditors: (editors) ->
     if editors.length == 0
       return true;
@@ -323,6 +327,9 @@ class ProcessController
       messageTitle = 'Running ' + _.humanizeEventName(@config.getCommandName());
       atom.notifications.addInfo(messageTitle, notifOptions);
 
+    if @config.scriptOnStart
+      @runScript('start', @config.startScript);
+
     if @config.input
       @process.stdin.write(@insertFields(@config.input));
       @process.stdin.uncork();
@@ -382,9 +389,15 @@ class ProcessController
     if (index != -1)
       @processCallbacks.splice(index, 1);
 
-  killProcess:  ->
+  discard: ->
+    if !@process?
+      @configController.removeProcessController(@);
+
+  killProcess: (discard = false) ->
     if @process == null
       return;
+
+    @autoDiscard = discard;
 
     try
       if process.platform == "win32"
@@ -449,11 +462,15 @@ class ProcessController
         if @config.notifyOnSuccess
           notifOptions["detail"] = @insertFields(@config.successMessage);
           atom.notifications.addSuccess(messageTitle, notifOptions);
+        if @config.scriptOnSuccess
+          @runScript('success', @config.successScript);
       else
         if @config.notifyOnError
           notifOptions["dismissable"] = true;
           notifOptions["detail"] = @insertFields(@config.errorMessage);
           atom.notifications.addWarning(messageTitle, notifOptions);
+        if @config.scriptOnError
+          @runScript('error', @config.errorScript);
 
     if !@config.stream
       if @fields.exitStatus == 0
@@ -477,6 +494,9 @@ class ProcessController
 
     @configController.notifyProcessStopped(@);
     _.invoke(_.clone(@processCallbacks), "processStopped");
+
+    if @autoDiscard
+      @discard();
 
   outputToTarget: (output, stream) ->
     if (@config.outputTarget == "editor")
@@ -535,3 +555,32 @@ class ProcessController
 
     pane = atom.workspace.paneForItem(@newFile);
     pane?.activateItem(@newFile);
+
+  runScript: (target, script) ->
+    if !script?
+      return;
+
+    argNames = [];
+    argValues = [];
+
+    for key, val of @fields
+      argNames.push(key);
+      argValues.push(val);
+
+    argNames.push('env');
+    argValues.push(shell.env);
+
+    try
+      script = atob(script);
+
+      allowUnsafeNewFunction ->
+        f = new Function(argNames.join(','), script);
+        f.apply(null, argValues);
+    catch e
+      message = "The 'on " + target + "' JavaScript could not be executed. " + e.message;
+      warning = "Error executing script for #{@config.namespace}: #{@config.action}";
+
+      notifOptions = {};
+      notifOptions["dismissable"] = true;
+      notifOptions["detail"] = message;
+      atom.notifications.addWarning(warning, notifOptions);

@@ -1,6 +1,7 @@
 _ = require 'underscore-plus'
 {File, CompositeDisposable} = require 'atom'
 MainView = require './views/main-view'
+TreeViewController = require './controllers/tree-view-controller'
 
 Path = null
 ConfigsView = null
@@ -33,12 +34,16 @@ module.exports = ProcessPalette =
     @subscriptions = new CompositeDisposable();
     @projectControllers = [];
     @mainView = new MainView(@);
+    @treeViewController = new TreeViewController(@);
     @bottomPanel = atom.workspace.addBottomPanel(item: @mainView.getElement(), visible: false);
 
     @subscriptions.add atom.commands.add 'atom-workspace', 'process-palette:show': => @showPanel()
     @subscriptions.add atom.commands.add 'atom-workspace', 'process-palette:hide': => @hidePanel()
     @subscriptions.add atom.commands.add 'atom-workspace', 'process-palette:toggle': => @togglePanel()
     @subscriptions.add atom.commands.add 'atom-workspace', 'process-palette:rerun-last': => @runLast()
+    @subscriptions.add atom.commands.add 'atom-workspace', 'process-palette:kill-focused-process': => @mainView.killFocusedProcess(false)
+    @subscriptions.add atom.commands.add 'atom-workspace', 'process-palette:kill-and-remove-focused-process': => @mainView.killFocusedProcess(true)
+    @subscriptions.add atom.commands.add 'atom-workspace', 'process-palette:remove-focused-output': => @mainView.discardFocusedOutput()
     @subscriptions.add atom.commands.add 'atom-workspace', 'process-palette:edit-configuration': => @editConfiguration()
     @subscriptions.add atom.commands.add 'atom-workspace', 'process-palette:reload-configuration': => @reloadConfiguration()
     @subscriptions.add atom.commands.add 'atom-workspace',
@@ -61,6 +66,7 @@ module.exports = ProcessPalette =
   deactivate: ->
     @subscriptions.dispose();
     @disposeProjectControllers();
+    @treeViewController.dispose();
     @mainView.destroy();
 
   disposeProjectControllers: ->
@@ -117,7 +123,10 @@ module.exports = ProcessPalette =
 
     return null;
 
-  reloadConfiguration: (saveEditors = true)->
+  reloadConfiguration: (saveEditors = true) ->
+    @treeViewController.dispose();
+    @treeViewController = new TreeViewController(@);
+
     if saveEditors
       @saveEditors();
 
@@ -225,9 +234,9 @@ module.exports = ProcessPalette =
     # If the file is already open then activate its pane.
     filePath = file.getRealPathSync();
     paneItem = @getPaneItem(filePath);
-    pane = atom.workspace.getActivePane();
 
-    if paneItem != null
+    if paneItem?
+      pane = atom.workspace.paneForItem(paneItem);
       pane.activateItem(paneItem);
       return;
 
@@ -241,6 +250,7 @@ module.exports = ProcessPalette =
         config.commands = [];
 
       view = new MainEditView(main, title, filePath, config, selectedAction);
+      pane = atom.workspace.getCenter().getActivePane();
       paneItem = pane.addItem(view, {index: 0});
       pane.activateItem(paneItem);
 
@@ -307,3 +317,6 @@ module.exports = ProcessPalette =
     if @dirty != dirty
       @dirty = dirty;
       @mainView.setSaveButtonVisible(@dirty);
+
+  recreateTreeViewContextMenu: ->
+    @treeViewController.recreateContextMenu();

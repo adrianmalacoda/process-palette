@@ -1,8 +1,8 @@
 {
   "name": "process-palette",
   "main": "./lib/main",
-  "version": "0.13.0",
-  "description": "Run shell commands via the command palette.",
+  "version": "0.15.0",
+  "description": "Run parameterized shell commands from Atom. Easy to use and very configurable.",
   "keywords": [
     "run",
     "execute",
@@ -23,6 +23,7 @@
     "ps-tree": "1.0.0",
     "underscore.string": "~3.2",
     "ansi-to-html": "~0.3",
-    "fs-plus": "^2.8.0"
+    "fs-plus": "^2.8.0",
+    "loophole": "^1.1.0"
   }
 }

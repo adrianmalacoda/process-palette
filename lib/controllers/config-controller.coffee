@@ -13,6 +13,7 @@ class ConfigController
     @patterns = @projectController.getPatterns(@config.patterns);
     @lastTime = null;
     @disposables = new CompositeDisposable();
+    @ctxMenuDisposables = null;
 
     cssSelector = 'atom-workspace';
 
@@ -46,6 +47,55 @@ class ConfigController
     leaf['command'] = @config.getCommandName();
     @disposables.add(atom.menu.add([root]));
 
+  # Adds a menu item to the tree-view's context menu to run this command with
+  # the selected path in the tree view. An item is only added if this command
+  # takes a file as input.
+  recreateTreeViewMenuItem: ->
+    @disposeTreeViewMenuItem();
+
+    if !@inputUsesFileVariables()
+      return;
+
+    # Create a command that will run this process with the tree view's selected path.
+    commandName = 'tree-view-run-with:' + @config.action;
+
+    @ctxMenuDisposables = new CompositeDisposable();
+    @ctxMenuDisposables.add(atom.commands.add('atom-workspace', commandName, () => @runProcessFromTreeView()));
+    shouldEnable = () => @shouldTreeViewMenuEnable();
+
+    # NB. Notice that the function assigned to 'created' uses '->' instead of '=>'.
+    # This is so that @ points to the menu item and not ConfigController.
+
+    root = {
+      label: 'Run With',
+      submenu: [
+        {
+          label: _.humanizeEventName(@config.action),
+          command: commandName,
+          created: () -> @.enabled = shouldEnable()
+        }
+      ]
+    };
+
+    @ctxMenuDisposables.add(atom.contextMenu.add({'.tree-view': [root]}));
+
+  # This is called when the command was edited directly from the panel.
+  # If the command previously didn't depend on a file and does now, then
+  # a context menu item will be created for it. If the command did depend
+  # on a file, but now doesn't anymore then the menu item is removed.
+  recreateTreeViewMenuItemIfNeeded: ->
+    hasCtxMenu = @ctxMenuDisposables?;
+    usesFileVars = @inputUsesFileVariables();
+
+    # Do nothing if there is already a menu item and it is still needed.
+    if hasCtxMenu and !usesFileVars
+      @disposeTreeViewMenuItem();
+    else if !hasCtxMenu and usesFileVars
+      @projectController.main.recreateTreeViewContextMenu();
+
+  shouldTreeViewMenuEnable: ->
+    return document.querySelectorAll(".tree-view .selected").length > 0;
+
   getMain: ->
     return @projectController.getMain();
 
@@ -64,6 +114,7 @@ class ConfigController
   # Changes the command to execute. This is called when editing the command from the panel.
   setCommand: (command) ->
     @config.command = command;
+    @recreateTreeViewMenuItemIfNeeded();
     # @saveFile();
 
   getFirstProcessController: ->
@@ -84,7 +135,12 @@ class ConfigController
   dispose: ->
     @killRunningProcesses();
     @clearControllers();
+    @disposeTreeViewMenuItem();
     @disposables.dispose();
+
+  disposeTreeViewMenuItem: ->
+    @ctxMenuDisposables?.dispose();
+    @ctxMenuDisposables = null;
 
   clearControllers: ->
     for processController in @processControllers
@@ -109,10 +165,15 @@ class ConfigController
       else
         notifOptions["detail"] = "The file needs to be saved before this command can be executed on it.";
 
-      atom.notifications.addWarning("Cannot execute #{@config.namespace}: #{@config.action}", notifOptions);
+      atom.notifications.addWarning("Cannot execute #{@config.getHumanizedCommandName()}", notifOptions);
       return;
 
     @runProcessWithFile(filePath);
+
+  runProcessFromTreeView: ->
+    selected = document.querySelectorAll(".tree-view .selected > .list-item > .name, .tree-view .selected > .name")
+    if selected.length > 0
+      @runProcessWithFile(selected[0].dataset.path);
 
   runProcessWithFile: (filePath) ->
     if @config.singular
