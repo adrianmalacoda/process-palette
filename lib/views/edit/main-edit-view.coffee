@@ -13,12 +13,12 @@ class MainEditView extends View
 
   @content: (title, filePath, config) ->
     @div =>
-      @div {class: 'process-palette-main-edit-view'}, =>
+      @div {class: 'main-edit-view'}, =>
         @subview 'splitView', new SplitView();
         @div {class: 'left-view', outlet: 'leftView'}, =>
           @span title, {class: 'title text-highlight'}
-          @button {class:"btn btn-xs icon-unfold inline-block-tight reload-button", outlet: "toggleButton", click: "togglePressed"}
-          @button {class:"btn btn-xs icon-sync inline-block-tight reload-button", outlet: "reloadButton", click: "reloadPressed"}
+          @button {class:"btn btn-sm icon-unfold inline-block-tight reload-button", outlet: "toggleButton", click: "togglePressed"}
+          @button {class:"btn btn-sm icon-sync inline-block-tight reload-button", outlet: "reloadButton", click: "reloadPressed"}
           @div {class: 'panel-body'}, =>
             @subview 'commandChooseView', new CommandChooseView(config.commands)
           @button 'Edit Patterns', {class: 'btn btn-sm edit-patterns-button', outlet: 'editPatternsButton', click: 'editPatterns'}

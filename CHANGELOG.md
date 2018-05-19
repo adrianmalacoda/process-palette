@@ -1,3 +1,17 @@
+## v0.16.1 (3 February 2018)
+- Fix bug when help view got destroyed.
+- Fix auto enabling and disabling of scroll lock.
+
+## v0.16.0 (21 November 2017)
+- Group commands per project and make it collapsible.
+- Added a `lineNo` variable which contains the line number of the cursor (@angeldeejay)
+
+## v0.15.2 (4 November 2017)
+- Various UI improvements.
+
+## v0.15.1 (10 October 2017)
+- Moved panel to the dock.
+
 ## v0.14.1 (19 August 2017)
 - Added hooks for running custom JavaScript.
 

@@ -1,5 +1,5 @@
 _ = require 'underscore-plus'
-{File, CompositeDisposable} = require 'atom'
+{Directory, File, CompositeDisposable} = require 'atom'
 MainView = require './views/main-view'
 TreeViewController = require './controllers/tree-view-controller'
 
@@ -35,7 +35,7 @@ module.exports = ProcessPalette =
     @projectControllers = [];
     @mainView = new MainView(@);
     @treeViewController = new TreeViewController(@);
-    @bottomPanel = atom.workspace.addBottomPanel(item: @mainView.getElement(), visible: false);
+    # @bottomPanel = atom.workspace.addBottomPanel(item: @mainView.getElement(), visible: false);
 
     @subscriptions.add atom.commands.add 'atom-workspace', 'process-palette:show': => @showPanel()
     @subscriptions.add atom.commands.add 'atom-workspace', 'process-palette:hide': => @hidePanel()
@@ -55,11 +55,15 @@ module.exports = ProcessPalette =
     #   @subscriptions.add editor.onDidSave (event) =>
     #     @fileSaved(event.path);
 
-    if _.isNumber(@state.height)
-      @mainView.setViewHeight(@state.height);
+    # if _.isNumber(@state.height)
+      # @mainView.setViewHeight(@state.height);
+
+    atom.workspace.addOpener (uri) =>
+      if uri == MainView.URI
+        return @mainView;
 
     if @state.visible
-      @bottomPanel.show();
+      @showPanel(false);
 
     process.nextTick () => @load()
 
@@ -67,7 +71,7 @@ module.exports = ProcessPalette =
     @subscriptions.dispose();
     @disposeProjectControllers();
     @treeViewController.dispose();
-    @mainView.destroy();
+    @mainView.deactivate();
 
   disposeProjectControllers: ->
     for projectController in @projectControllers
@@ -76,8 +80,7 @@ module.exports = ProcessPalette =
   serialize: ->
     if @mainView != null
       state = {};
-      state.visible = @bottomPanel.isVisible();
-      state.height = @mainView.viewHeight;
+      state.visible = @getDock() != null;
       return state;
 
     return @state;
@@ -142,18 +145,44 @@ module.exports = ProcessPalette =
     atom.notifications.addInfo("Process Palette configurations reloaded");
 
   togglePanel: ->
-    if @bottomPanel.visible
-      @bottomPanel.hide();
+    if @isVisibleInDock()
+      @hidePanel()
     else
-      @bottomPanel.show();
+      @showPanel();
 
-  showPanel: ->
-    if !@bottomPanel.visible
-      @bottomPanel.show();
+  showPanel: (activate = true) ->
+    atom.workspace.open(MainView.URI, {
+      searchAllPanes: true,
+      activatePane: activate,
+      activateItem: activate
+    });
 
   hidePanel: ->
-    if @bottomPanel.visible
-      @bottomPanel.hide();
+    atom.workspace.hide(@mainView);
+
+  isVisible: ->
+    return @isVisibleInDock();
+
+  isVisibleInDock: ->
+    dock = @getDock();
+
+    if !dock? or !dock.isVisible()
+      return false;
+
+    if !dock.getActivePane()?
+      return false;
+
+    return dock.getActivePane().getActiveItem() is @mainView;
+
+  getDock: ->
+    if atom.workspace.getBottomDock().getPaneItems().indexOf(@mainView) >= 0
+      return atom.workspace.getBottomDock();
+    if atom.workspace.getLeftDock().getPaneItems().indexOf(@mainView) >= 0
+      return atom.workspace.getLeftDock();
+    if atom.workspace.getRightDock().getPaneItems().indexOf(@mainView) >= 0
+      return atom.workspace.getRightDock();
+
+    return null;
 
   runLast: ->
     configController = @getLastRunConfigController();
@@ -174,9 +203,15 @@ module.exports = ProcessPalette =
     @mainView.processControllerRemoved(processController);
 
   addProjectPath: (projectPath) ->
+    file = new Directory(projectPath).getFile('process-palette.json');
+
+    if !file.existsSync()
+      return;
+
     ProjectController ?= require './controllers/project-controller'
     projectController = new ProjectController(@, projectPath);
     @projectControllers.push(projectController);
+    @mainView.addProjectView(projectController.view);
 
   removeProjectController: (projectController) ->
     index = @projectControllers.indexOf(projectController);
@@ -212,6 +247,7 @@ module.exports = ProcessPalette =
       exampleFile.read(false).then (content) =>
         file.create().then =>
           file.writeSync(content);
+          @addProjectPath(folderPath);
           @guiOpenFile(title, file);
     else
       @guiOpenFile(title, file);

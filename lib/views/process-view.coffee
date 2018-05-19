@@ -7,11 +7,11 @@ InsertVariableView = require './edit/insert-variable-view'
 module.exports =
 class ProcessView extends View
 
-  constructor: (@main, @configController) ->
-    super(@main, @configController);
+  constructor: (@configController) ->
+    super(@configController);
     @configController.addListener(@);
 
-  @content: (main, configController) ->
+  @content: (configController) ->
     headerArgs = {};
     outputTitleArgs = {};
     outputValueArgs = {};
@@ -41,21 +41,23 @@ class ProcessView extends View
     if configController.config.stream
       successOutput = 'stream';
 
-    @div class:'process-palette-process', =>
-      @button {class:'btn btn-xs icon-playback-play inline-block-tight', outlet:'runButton', click:'runButtonPressed'}
-      @button {class:'btn btn-xs icon-pencil inline-block-tight', outlet:'editButton', click:'editButtonPressed'}
-      @span _.humanizeEventName(configController.config.getCommandName()), headerArgs
-      if configController.config.keystroke
-        @span _.humanizeKeystroke(configController.config.keystroke), class:'keystroke inline-block highlight'
-      @subview 'buttonsView', new ButtonsView(main, configController);
+    @div class:'process-list-item', =>
+      @div class: 'process-toolbar', =>
+        @button {class:'btn btn-sm btn-fw icon-playback-play inline-block-tight', outlet:'runButton', click:'runButtonPressed'}
+        @button {class:'btn btn-sm btn-fw icon-pencil inline-block-tight', outlet:'editButton', click:'editButtonPressed'}
+        @span _.humanizeEventName(configController.config.getCommandName()), headerArgs
+        if configController.config.keystroke
+          @span _.humanizeKeystroke(configController.config.keystroke), class:'keystroke inline-block highlight'
+        @subview 'buttonsView', new ButtonsView(configController);
       @table =>
         @tbody =>
           @tr {outlet: 'commandRow'}, =>
             @td 'Command', class: 'table-title'
-            @td {class: 'table-value'}, =>
-              @subview 'commandEditor', new TextEditorView()
-            @td {class: 'table-button'}, =>
-              @button 'Insert Variable', {class: 'btn btn-xs insert-button', click: 'insertVariable'}
+            @td =>
+              @div {style: "display: flex; align-items: center"}, =>
+                @div {style: "flex: 1"}, =>
+                  @subview 'commandEditor', new TextEditorView()
+                @button 'Insert Variable', {class: 'btn btn-xs insert-button', click: 'insertVariable'}
           @tr {outlet: 'outputRow'}, =>
             @td "Output#{outputTarget}", outputTitleArgs
             @td "#{successOutput}", outputValueArgs
@@ -100,7 +102,6 @@ class ProcessView extends View
   commandChanged: ->
     if @initialized
       @configController.setCommand(@commandEditor.getModel().getText());
-      @main.setDirty(true);
     else
       @initialized = true;
 
@@ -108,7 +109,7 @@ class ProcessView extends View
     processController = @configController.getFirstProcessController();
 
     if processController != null
-      @main.showProcessOutput(processController);
+      processController.showProcessOutput();
 
   processStarted: =>
     # @runKillButton.removeClass('icon-playback-play');
@@ -122,13 +123,13 @@ class ProcessView extends View
     # @runKillButton.addClass('icon-playback-play');
 
   processControllerRemoved: (processController) ->
-    @main.processControllerRemoved(processController);
+    # @main.processControllerRemoved(processController);
 
   runButtonPressed: ->
     @configController.runProcess();
 
   editButtonPressed: ->
-    @main.guiEditCommand(@configController);
+    @configController.guiEdit();
 
   destroy: ->
     @disposables.dispose();

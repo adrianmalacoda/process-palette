@@ -21,17 +21,18 @@ class ProcessOutputView extends View
     @setScrollLockEnabled(@processController.config.scrollLockEnabled);
 
   @content: (main, processController) ->
-    @div =>
-      @div {class:"process-palette-process", style:'margin-bottom:5px', outlet:"header"}, =>
-        @button {class:'btn btn-xs icon-three-bars inline-block-tight', outlet:'showListViewButton', click:'showListView'}
-        @button {class:'btn btn-xs icon-playback-play inline-block-tight', outlet:'runButton', click:'runButtonPressed'}
-        @span {class:'header inline-block text-highlight', outlet: 'commandName'}
-        @span {class:'keystroke inline-block highlight', outlet:'keystroke'}
-        @span {class:'btn-group'}, =>
-          @button {class:'btn btn-xs icon-trashcan', style:'margin-left:15px', outlet:'clearButton', click:'clearOutput'}
-          @button {class:'btn btn-xs icon-lock', style:'margin-right:15px', outlet:'scrollLockButton', click:'toggleScrollLock'}
-        @subview "buttonsView", new ButtonsView(main, processController.configController, processController);
-      @div {class:"process-palette-output-panel native-key-bindings", tabindex: -1, outlet:'outputPanel'}
+    @div {class:'process-output-view'}, =>
+      @div {class:'process-list-item', outlet:'header'}, =>
+        @div {class:'process-toolbar'}, =>
+          @button {class:'btn btn-sm btn-fw icon-three-bars inline-block-tight', outlet:'showListViewButton', click:'showListView'}
+          @button {class:'btn btn-sm btn-fw icon-playback-play inline-block-tight', outlet:'runButton', click:'runButtonPressed'}
+          @span {class:'header inline-block text-highlight', outlet: 'commandName'}
+          @span {class:'keystroke inline-block highlight', outlet:'keystroke'}
+          @span {class:'btn-group'}, =>
+            @button {class:'btn btn-sm btn-fw icon-trashcan', outlet:'clearButton', click:'clearOutput'}
+            @button {class:'btn btn-sm btn-fw icon-lock', style:'margin-right:15px', outlet:'scrollLockButton', click:'toggleScrollLock'}
+          @subview "buttonsView", new ButtonsView(processController.configController, processController);
+      @div {class:"output-panel native-key-bindings", tabindex: -1, outlet:'outputPanel'}
 
   initialize: ->
     @disposables = new CompositeDisposable();
@@ -71,12 +72,22 @@ class ProcessOutputView extends View
 
     @outputPanel.on 'mousedown', (e) =>
       # Only do this while the process is running.
-      if @processController.process != null
+      if @processController.process
         @setScrollLockEnabled(true);
+
+    @outputPanel.on 'mousewheel', (e) =>
+      if !@processController.process
+        return;
+
+      delta = e.originalEvent.deltaY;
+
+      if delta < 0
+        @setScrollLockEnabled(true);
+      else if delta > 0
+        @disableScrollLockIfAtBottom();
 
     @outputPanel.on 'scroll', (e) =>
       @lastScrollTop = @outputPanel.scrollTop();
-      @disableScrollLockIfAtBottom();
 
   addToolTips: ->
     @disposables.add(atom.tooltips.add(@showListViewButton, {title: 'Show palette'}));
@@ -85,15 +96,11 @@ class ProcessOutputView extends View
     @disposables.add(atom.tooltips.add(@runButton, {title: 'Run process'}));
 
   disableScrollLockIfAtBottom: ->
-    if @processController.process == null
-      return;
-
     if ((@outputPanel.height() + @outputPanel.scrollTop()) == @outputPanel.get(0).scrollHeight)
-      # Only do this while the process is running.
       if (@outputPanel.scrollTop() > 0)
         @setScrollLockEnabled(false);
-    else
-      @setScrollLockEnabled(true);
+    # else
+      # @setScrollLockEnabled(true);
 
   parentHeightChanged: (parentHeight) ->
     @calculateHeight();
@@ -106,7 +113,7 @@ class ProcessOutputView extends View
     @outputChanged();
 
   calculateHeight: =>
-    @outputPanel.height(@main.mainView.height() - @header.height() - 5);
+    # @outputPanel.height(@main.mainView.height() - @header.height() - 5);
 
   processStarted: =>
 

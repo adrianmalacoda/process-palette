@@ -1,10 +1,12 @@
 HelpView = require './help-view'
-ProcessListView = require './process-list-view'
-{$, View} = require 'atom-space-pen-views'
+ProjectView = require './project-view'
+{$, $$, View, TextEditorView} = require 'atom-space-pen-views'
 {CompositeDisposable} = require 'atom'
 
 module.exports =
 class MainView extends View
+
+  @URI = 'atom://process-palette'
 
   constructor: (@main) ->
     super(@main);
@@ -13,19 +15,19 @@ class MainView extends View
     @showHelpView();
 
   @content: (main) ->
-    @div {class: "process-palette process-palette-resizer"}, =>
-      @div class: "process-palette-resize-handle"
+    @div {class: "process-palette"}, =>
       @div {class: "button-group"}, =>
-        @button "Save", {class:"btn btn-sm btn-info inline-block-tight", outlet: "saveButton", click: "savePressed"}
-        @button {class:"btn btn-xs icon-pencil inline-block-tight", outlet: "editButton", click: "editPressed"}
-        @button {class:"btn btn-xs icon-sync inline-block-tight", outlet: "reloadButton", click: "reloadPressed"}
-        @button {class:"btn btn-xs icon-gear inline-block-tight", outlet: "settingsButton", click: "settingsPressed"}
-        @button {class:"btn btn-xs icon-question inline-block-tight", outlet: "helpButton", click: "toggleHelpView"}
-        @button {class:"btn btn-xs icon-chevron-down inline-block-tight", outlet: "hideButton", click: "closePressed"}
+        @button "Save", {class:"btn btn-sm btn-fw btn-info inline-block-tight", outlet: "saveButton", click: "savePressed"}
+        @button {class:"btn btn-sm btn-fw icon-pencil inline-block-tight", outlet: "editButton", click: "editPressed"}
+        @button {class:"btn btn-sm btn-fw icon-sync inline-block-tight", outlet: "reloadButton", click: "reloadPressed"}
+        @button {class:"btn btn-sm btn-fw icon-gear inline-block-tight", outlet: "settingsButton", click: "settingsPressed"}
+        @button {class:"btn btn-sm btn-fw icon-question inline-block-tight", outlet: "helpButton", click: "toggleHelpView"}
+        @button {class:"btn btn-sm btn-fw icon-chevron-down inline-block-tight", outlet: "hideButton", click: "closePressed"}
       @div {class: "main-content", outlet: "mainContent"}, =>
-        @subview "helpView", new HelpView(main)
-        @subview "listView", new ProcessListView(main)
-        @div {outlet: "outputViewContainer"}
+        @div {outlet: "helpView"}, =>
+          @subview "hv", new HelpView(main)
+        @div {class: "projects-list", outlet: "listView"}
+        @div {class: "output-view", outlet: "outputViewContainer"}
 
   initialize: ->
     @disposables = new CompositeDisposable();
@@ -45,28 +47,27 @@ class MainView extends View
 
     @saveButton.hide();
 
-    @on 'mousedown', '.process-palette-resize-handle', (e) => @resizeStarted(e);
+  getTitle: ->
+    return 'Process Palette';
 
-  resizeStarted: =>
-    $(document).on('mousemove', @resizeView)
-    $(document).on('mouseup', @resizeStopped)
+  getURI: ->
+    return MainView.URI;
 
-  resizeStopped: =>
-    $(document).off('mousemove', @resizeView)
-    $(document).off('mouseup', @resizeStopped)
+  getPreferredLocation: ->
+    return 'bottom';
 
-  resizeView: ({pageY, which}) =>
-    return @resizeStopped() unless which is 1
+  getAllowedLocations: ->
+    return ['bottom', 'left', 'right'];
 
-    change = @offset().top - pageY;
-    @setViewHeight(@mainContent.height() + change);
+  isPermanentDockItem: ->
+    return false;
 
   setViewHeight: (@viewHeight) ->
-    @viewHeight = Math.max(@viewHeight, 100);
-    @mainContent.height(@viewHeight);
-    @viewHeight = @mainContent.height();
-    @listView.parentHeightChanged(@viewHeight);
-    @outputView?.parentHeightChanged(@viewHeight);
+    # @viewHeight = Math.max(@viewHeight, 100);
+    # @mainContent.height(@viewHeight);
+    # @viewHeight = @mainContent.height();
+    # @listView.parentHeightChanged(@viewHeight);
+    # @outputView?.parentHeightChanged(@viewHeight);
 
   setSaveButtonVisible: (visible) ->
     if visible
@@ -139,6 +140,17 @@ class MainView extends View
   closePressed: =>
     @main.hidePanel();
 
+  addProjectView: (view) =>
+    @listView.append(view);
+    # @listDiv[0].appendChild(view.get(0));
+    # viewElement = document.createElement("div");
+    # @listDiv[0].appendChild(viewElement);
+    # jview = $(viewElement);
+    # jview.append(view);
+
+
+    @showListView();
+
   addConfigController: (configController) =>
     @listView.addConfigController(configController);
     @showListView();
@@ -171,9 +183,9 @@ class MainView extends View
     if !@outputViewContainer.isHidden()
       @outputView?.processController.discard();
 
-  destroy: ->
-    @listView.destroy();
-    @helpView.destroy();
+  deactivate: ->
+    # @listView.destroy();
+    @hv.destroy();
     @disposables.dispose();
     @element.remove();
 

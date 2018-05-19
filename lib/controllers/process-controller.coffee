@@ -6,7 +6,7 @@ shell = require 'shelljs'
 ProcessConfig = require '../process-config'
 ProcessOutputView = require '../views/process-output-view'
 InputDialogView = require '../views/input-dialog-view'
-ProjectsView = require '../views/projects-view'
+ProjectSelectView = require '../views/project-select-view'
 Buffer = require './buffer'
 cp = require('child_process')
 {allowUnsafeNewFunction} = require 'loophole'
@@ -72,6 +72,12 @@ class ProcessController
     @newFileDisposable?.dispose();
     @outputView?.destroy();
 
+  showProcessOutput: ->
+    @configController.getMain().showProcessOutput(@);
+
+  hasBeenRemoved: ->
+    @configController.getMain().processControllerRemoved(@);
+
   # Return false if the process didn't start.
   runProcessWithFile: (filePath) ->
     if @process?
@@ -102,8 +108,10 @@ class ProcessController
       lastCursor = editor.getLastCursor();
       if lastCursor?
         @fields.line = lastCursor.getCurrentBufferLine();
+        @fields.lineNo = lastCursor.getBufferRow() + 1;
       else
-        @fields.line = '';
+        @fields.line = 1;
+        @fields.lineNo = '';
 
     if filePath
       file = new File(filePath);
@@ -246,7 +254,7 @@ class ProcessController
 
   takeProjectInput: ->
     callback = (value) => @projectInputCallback(value);
-    new ProjectsView(callback, true);
+    new ProjectSelectView(callback, true);
 
   projectInputCallback: (value) ->
     if value?

@@ -13,7 +13,7 @@ class CommandEditView extends View
 
   @content: ->
     @div =>
-      @div {class:'process-palette-command-edit-view'}, =>
+      @div {class:'command-edit-view'}, =>
         @table =>
           @tbody =>
             @tr =>
@@ -350,6 +350,9 @@ class CommandEditView extends View
             @tr =>
               @td 'line', {class: 'text-highlight first-column'}
               @td 'Line at cursor.'
+            @tr =>
+              @td 'lineNo', {class: 'text-highlight first-column'}
+              @td 'Line number at cursor.'
             @tr =>
               @td {colspan: 2}, =>
                 @h3 'Output Variables', {class: 'text-highlight'}

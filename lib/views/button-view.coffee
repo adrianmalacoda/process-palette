@@ -4,17 +4,17 @@
 module.exports =
 class ButtonView extends View
 
-  constructor: (@main, @configController, @processController) ->
-    super(@main, @configController, @processController);
+  constructor: (@configController, @processController) ->
+    super(@configController, @processController);
     @processController.addProcessCallback(@);
 
     if @processController.process == null
       @showTrashIcon();
 
-  @content: (main, configController, processController) ->
-    @span {class: "process-palette-button-view btn-group btn-group-sm inline-block-tight"}, =>
-      @button {class: "btn icon-primitive-square", outlet: "killButton", click: "killButtonPressed"}
-      @button "#{processController.getProcessID()}", {class: "btn pid", outlet: "showOutputButton", click: "showOutputButtonPressed"}
+  @content: (configController, processController) ->
+    @span {class: "btn-group", style: "display: flex; margin-right: 0.5em"}, =>
+      @button {class: "btn btn-sm btn-fw icon-primitive-square", outlet: "killButton", click: "killButtonPressed"}
+      @button "#{processController.getProcessID()}", {class: "btn btn-sm ", outlet: "showOutputButton", click: "showOutputButtonPressed"}
 
   initialize: ->
     @disposables = new CompositeDisposable();
@@ -59,7 +59,7 @@ class ButtonView extends View
     outputTarget = @configController.config.outputTarget;
 
     if (outputTarget == "panel")
-      @main.showProcessOutput(@processController);
+      @processController.showProcessOutput();
     else if (outputTarget == "console")
       atom.openDevTools();
     else if (outputTarget == "file")
